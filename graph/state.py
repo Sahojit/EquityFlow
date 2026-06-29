@@ -1,0 +1,161 @@
+"""Shared state definitions for the AlphaAgents LangGraph pipeline.
+
+All Pydantic models used as typed fields within ResearchState are defined here.
+Agents import these models directly; nothing outside this module defines new state shapes.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel, Field
+from typing_extensions import TypedDict
+
+# ---------------------------------------------------------------------------
+# Sub-models
+# ---------------------------------------------------------------------------
+
+
+class WebResult(BaseModel):
+    """A single web search result with an LLM-generated summary."""
+
+    url: str = Field(description="Source URL of the result.")
+    title: str = Field(description="Page title.")
+    snippet: str = Field(description="Raw snippet returned by the search API.")
+    summary: str = Field(description="LLM-generated one-paragraph summary of the page.")
+    retrieved_at: datetime = Field(description="UTC timestamp when the result was fetched.")
+
+
+class FinancialData(BaseModel):
+    """Key financial metrics for a company fetched via yfinance."""
+
+    ticker: str = Field(description="Stock ticker symbol, e.g. 'INFY'.")
+    company_name: str = Field(description="Full legal company name.")
+    current_price: float | None = Field(None, description="Latest closing price in USD.")
+    pe_ratio: float | None = Field(None, description="Trailing P/E ratio.")
+    pb_ratio: float | None = Field(None, description="Price-to-book ratio.")
+    roe: float | None = Field(None, description="Return on equity (decimal, e.g. 0.23).")
+    revenue_growth_yoy: float | None = Field(
+        None, description="Year-over-year revenue growth (decimal)."
+    )
+    debt_to_equity: float | None = Field(None, description="Debt-to-equity ratio.")
+    market_cap: float | None = Field(None, description="Market capitalisation in USD.")
+    data_as_of: datetime | None = Field(None, description="Timestamp of the fetched data.")
+    data_available: bool = Field(
+        True,
+        description="False when yfinance returned no data; all numeric fields will be None.",
+    )
+
+
+class NewsResult(BaseModel):
+    """A single news article with sentiment and summary extracted by the LLM."""
+
+    headline: str = Field(description="Article headline.")
+    source_name: str = Field(description="Publisher name.")
+    url: str = Field(description="Article URL.")
+    published_at: datetime = Field(description="Publication timestamp (UTC).")
+    sentiment: Literal["positive", "neutral", "negative"] = Field(
+        description="LLM-assigned sentiment of the article."
+    )
+    summary: str = Field(description="One-sentence LLM summary of the article.")
+
+
+class CritiqueItem(BaseModel):
+    """A single claim reviewed by the critic agent."""
+
+    claim: str = Field(description="The verbatim claim extracted from the draft note.")
+    verdict: Literal["supported", "unsupported", "missing_citation"] = Field(
+        description="Whether the claim is supported by the provided sources."
+    )
+    reason: str = Field(description="Brief explanation of the verdict.")
+
+
+class ResearchNote(BaseModel):
+    """The final structured investment research note produced by the writer agent."""
+
+    company_name: str = Field(description="Full legal company name.")
+    ticker: str = Field(description="Stock ticker symbol.")
+    analyst: str = Field(
+        default="AlphaAgents v1",
+        description="Analyst name — always 'AlphaAgents v1'.",
+    )
+    date_generated: datetime = Field(description="UTC timestamp of note generation.")
+    investment_thesis: str = Field(description="Core investment argument in 2–4 sentences.")
+    key_risks: list[str] = Field(description="Bulleted list of material risks.")
+    valuation_summary: str = Field(
+        description="Summary of valuation metrics and comparables."
+    )
+    comparable_companies: list[str] = Field(
+        description="Ticker symbols of comparable public companies."
+    )
+    recommendation: Literal["Buy", "Hold", "Sell", "Not Rated"] = Field(
+        description="Investment recommendation."
+    )
+    confidence: Literal["High", "Medium", "Low"] = Field(
+        description="Analyst confidence level in the recommendation."
+    )
+    citations: list[str] = Field(
+        description="All source URLs cited in the full_text."
+    )
+    full_text: str = Field(
+        description="Full markdown-formatted research note (4–6 pages equivalent)."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Pipeline state
+# ---------------------------------------------------------------------------
+
+
+class ResearchState(TypedDict, total=False):
+    """Shared mutable state threaded through every node in the LangGraph pipeline.
+
+    All fields are optional (``total=False``) so individual nodes can update
+    only the keys they own without needing to re-emit the full state.
+    """
+
+    query: str
+    """Original user query string."""
+
+    job_id: str
+    """UUID assigned at pipeline entry — used to track the job in SQLite."""
+
+    sub_questions: list[str]
+    """Decomposed sub-questions generated by the orchestrator."""
+
+    research_plan: str
+    """High-level research plan generated by the orchestrator."""
+
+    web_results: list[WebResult]
+    """Web search results gathered by the web researcher agent."""
+
+    financial_data: FinancialData
+    """Financial metrics gathered by the financial data agent."""
+
+    news_results: list[NewsResult]
+    """Recent news articles gathered by the news agent."""
+
+    memory_context: str
+    """Relevant past research retrieved from ChromaDB by the memory agent."""
+
+    draft_note: ResearchNote
+    """Draft research note produced by the writer agent."""
+
+    critique: list[CritiqueItem]
+    """List of critique items produced by the critic agent."""
+
+    revision_count: int
+    """Number of writer→critic revision loops completed so far."""
+
+    hitl_decision: str | None
+    """Human-in-the-loop decision: 'approved', 'edited', 'rejected', or None."""
+
+    final_note: ResearchNote | None
+    """The approved (or human-edited) final research note."""
+
+    error: str | None
+    """Human-readable error message if any node failed; None on clean run."""
+
+    langfuse_trace_id: str | None
+    """LangFuse trace ID for the current pipeline run."""
