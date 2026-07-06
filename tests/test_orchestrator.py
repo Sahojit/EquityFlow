@@ -22,10 +22,10 @@ def _base_state() -> ResearchState:
     )
 
 
-@patch("agents.orchestrator.create_span")
+@patch("agents.orchestrator.trace_span")
 @patch("llm.client.get_llm_client")
 def test_orchestrator_happy_path(
-    mock_get_client: MagicMock, mock_create_span: MagicMock
+    mock_get_client: MagicMock, mock_trace_span: MagicMock
 ) -> None:
     """orchestrator_node populates sub_questions and research_plan on valid LLM output."""
     valid_response = json.dumps(
@@ -45,7 +45,6 @@ def test_orchestrator_happy_path(
     completion.choices = [choice]
     mock_client.chat.completions.create.return_value = completion
     mock_get_client.return_value = mock_client
-    mock_create_span.return_value = MagicMock()
 
     result = orchestrator_node(_base_state())
 
@@ -55,16 +54,15 @@ def test_orchestrator_happy_path(
     assert result.get("error") is None
 
 
-@patch("agents.orchestrator.create_span")
+@patch("agents.orchestrator.trace_span")
 @patch("llm.client.get_llm_client")
 def test_orchestrator_sets_error_on_llm_failure(
-    mock_get_client: MagicMock, mock_create_span: MagicMock
+    mock_get_client: MagicMock, mock_trace_span: MagicMock
 ) -> None:
     """orchestrator_node sets state['error'] and does not crash when LLM fails."""
     mock_client = MagicMock()
     mock_client.chat.completions.create.side_effect = RuntimeError("LLM unavailable")
     mock_get_client.return_value = mock_client
-    mock_create_span.return_value = MagicMock()
 
     result = orchestrator_node(_base_state())
 

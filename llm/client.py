@@ -13,6 +13,7 @@ import time
 from typing import Any, TypeVar
 
 from dotenv import load_dotenv
+from langfuse import Langfuse
 from openai import BadRequestError, OpenAI, RateLimitError
 from pydantic import BaseModel, ValidationError
 
@@ -35,6 +36,9 @@ MAX_RETRIES: int = 3
 BACKOFF_BASE_SECONDS: float = 2.0
 
 T = TypeVar("T", bound=BaseModel)
+
+# Module-level singleton — avoids reconnecting to LangFuse on every span
+_langfuse_client: Langfuse | None = None
 
 
 def _strip_fences(text: str) -> str:
@@ -72,6 +76,45 @@ def get_llm_client() -> OpenAI:
             "Get a free key at https://console.groq.com/keys"
         )
     return OpenAI(api_key=token, base_url=GROQ_BASE_URL)
+
+
+def get_langfuse_client() -> Langfuse:
+    """Return the LangFuse client singleton for pipeline observability.
+
+    Reads HF_TOKEN, LANGFUSE_PUBLIC_KEY, and LANGFUSE_SECRET_KEY from the
+    environment (set in .env).
+    """
+    global _langfuse_client
+    if _langfuse_client is None:
+        _langfuse_client = Langfuse(
+            public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
+            secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
+            host=os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com"),
+            httpx_client_kwargs={
+                "headers": {"Authorization": f"Bearer {os.getenv('HF_TOKEN')}"}
+            }
+            if os.getenv("HF_TOKEN")
+            else None,
+        )
+    return _langfuse_client
+
+
+def trace_span(name: str, input_data: dict, output_data: dict) -> None:
+    """Log a single named span to LangFuse with its input and output payloads.
+
+    Failures are logged and swallowed — tracing must never crash the pipeline.
+
+    Args:
+        name: Span name (typically the calling node's name).
+        input_data: Input payload to record on the span.
+        output_data: Output payload to record on the span.
+    """
+    try:
+        lf = get_langfuse_client()
+        with lf.start_as_current_span(name=name, input=input_data) as span:
+            span.update(output=output_data)
+    except Exception as exc:
+        logger.warning("trace_span failed for '%s': %s. Tracing skipped.", name, exc)
 
 
 # ---------------------------------------------------------------------------
