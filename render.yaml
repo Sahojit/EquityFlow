@@ -1,0 +1,38 @@
+services:
+  # FastAPI backend
+  - type: web
+    name: alpha-agents-api
+    runtime: python
+    buildCommand: pip install uv && uv sync --all-extras
+    startCommand: uv run uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: LANGFUSE_PUBLIC_KEY
+        sync: false
+      - key: LANGFUSE_SECRET_KEY
+        sync: false
+      - key: LANGFUSE_HOST
+        value: https://cloud.langfuse.com
+      - key: DATABASE_URL
+        value: sqlite:///./alpha_agents.db
+      - key: CHROMADB_PATH
+        value: ./chroma_db
+      - key: PRIMARY_MODEL
+        value: llama-3.1-8b-instant
+      - key: FALLBACK_MODEL
+        value: llama-3.3-70b-versatile
+      - key: MAX_REVISION_LOOPS
+        value: "2"
+
+  # Streamlit frontend
+  - type: web
+    name: alpha-agents-ui
+    runtime: python
+    buildCommand: pip install uv && uv sync --all-extras
+    startCommand: uv run streamlit run ui/app.py --server.port $PORT --server.address 0.0.0.0
+    envVars:
+      - key: API_BASE_URL
+        sync: false
