@@ -1,0 +1,22 @@
+[
+  {"query": "Infosys Q1 FY27 outlook", "expected_ticker": "INFY", "expected_sections": ["investment_thesis", "key_risks", "valuation_summary"], "ground_truth_note": ""},
+  {"query": "TCS annual results FY27", "expected_ticker": "TCS", "expected_sections": ["investment_thesis", "key_risks", "valuation_summary"], "ground_truth_note": ""},
+  {"query": "Wipro IT services growth FY27", "expected_ticker": "WIT", "expected_sections": ["investment_thesis", "key_risks", "valuation_summary"], "ground_truth_note": ""},
+  {"query": "HCL Technologies Q2 FY27 results", "expected_ticker": "HCLTECH.NS", "expected_sections": ["investment_thesis", "key_risks", "valuation_summary"], "ground_truth_note": ""},
+  {"query": "Reliance Industries Q1 FY27 earnings", "expected_ticker": "RELIANCE.NS", "expected_sections": ["investment_thesis", "key_risks", "valuation_summary"], "ground_truth_note": ""},
+  {"query": "Apple iPhone 17 cycle revenue impact", "expected_ticker": "AAPL", "expected_sections": ["investment_thesis", "key_risks", "valuation_summary"], "ground_truth_note": ""},
+  {"query": "Microsoft Azure cloud growth FY27", "expected_ticker": "MSFT", "expected_sections": ["investment_thesis", "key_risks", "valuation_summary"], "ground_truth_note": ""},
+  {"query": "NVIDIA data center revenue outlook 2027", "expected_ticker": "NVDA", "expected_sections": ["investment_thesis", "key_risks", "valuation_summary"], "ground_truth_note": ""},
+  {"query": "Amazon AWS Q1 2027 growth trajectory", "expected_ticker": "AMZN", "expected_sections": ["investment_thesis", "key_risks", "valuation_summary"], "ground_truth_note": ""},
+  {"query": "Google Alphabet advertising revenue FY27", "expected_ticker": "GOOGL", "expected_sections": ["investment_thesis", "key_risks", "valuation_summary"], "ground_truth_note": ""},
+  {"query": "Meta AI monetisation strategy 2027", "expected_ticker": "META", "expected_sections": ["investment_thesis", "key_risks", "valuation_summary"], "ground_truth_note": ""},
+  {"query": "Tesla vehicle delivery outlook Q2 2027", "expected_ticker": "TSLA", "expected_sections": ["investment_thesis", "key_risks", "valuation_summary"], "ground_truth_note": ""},
+  {"query": "HDFC Bank NIM outlook FY27", "expected_ticker": "HDB", "expected_sections": ["investment_thesis", "key_risks", "valuation_summary"], "ground_truth_note": ""},
+  {"query": "ICICI Bank credit growth FY27", "expected_ticker": "IBN", "expected_sections": ["investment_thesis", "key_risks", "valuation_summary"], "ground_truth_note": ""},
+  {"query": "Bajaj Finance AUM growth FY27", "expected_ticker": "BAJFINANCE.NS", "expected_sections": ["investment_thesis", "key_risks", "valuation_summary"], "ground_truth_note": ""},
+  {"query": "Zomato profitability path FY27", "expected_ticker": "ZOMATO.NS", "expected_sections": ["investment_thesis", "key_risks", "valuation_summary"], "ground_truth_note": ""},
+  {"query": "Paytm regulatory risk and revenue FY27", "expected_ticker": "PAYTM.NS", "expected_sections": ["investment_thesis", "key_risks", "valuation_summary"], "ground_truth_note": ""},
+  {"query": "Adani Ports logistics growth outlook", "expected_ticker": "ADANIPORTS.NS", "expected_sections": ["investment_thesis", "key_risks", "valuation_summary"], "ground_truth_note": ""},
+  {"query": "Sun Pharma US generics pipeline FY27", "expected_ticker": "SUNPHARMA.NS", "expected_sections": ["investment_thesis", "key_risks", "valuation_summary"], "ground_truth_note": ""},
+  {"query": "Tata Motors EV transition and JLR FY27", "expected_ticker": "TTM", "expected_sections": ["investment_thesis", "key_risks", "valuation_summary"], "ground_truth_note": ""}
+]
