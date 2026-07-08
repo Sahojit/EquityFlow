@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from graph.state import FinancialData, ResearchState
 from llm.client import call_structured, call_with_backoff
+from llm.tracing import create_span
 
 logger = logging.getLogger(__name__)
 
@@ -143,24 +144,15 @@ def _fetch_yfinance(ticker: str, company_name: str) -> FinancialData:
 
 
 def financial_data_node(state: ResearchState) -> ResearchState:
-    """Extract ticker from query, fetch financial metrics, and populate state.
-
-    Steps:
-    1. If the query contains an explicit ticker (all-caps word), use it directly.
-    2. Otherwise, call the LLM to extract ticker and company name.
-    3. Fetch metrics from yfinance.
-    4. If yfinance fails, return FinancialData with data_available=False.
-
-    Does NOT use LangFuse spans (data fetch, not LLM reasoning — per spec).
-
-    Args:
-        state: Current pipeline state. Reads ``query`` and ``job_id``.
-
-    Returns:
-        Updated state with ``financial_data`` populated.
-    """
+    """Extract ticker from query, fetch financial metrics, and populate state."""
     query = state.get("query", "")
     job_id = state.get("job_id", "unknown")
+
+    span = create_span(
+        "financial_data_node",
+        trace_id=state.get("langfuse_trace_id"),
+        input_data={"query": query, "job_id": job_id},
+    )
 
     try:
         extraction = _extract_ticker(query)
@@ -180,14 +172,17 @@ def financial_data_node(state: ResearchState) -> ResearchState:
                 data_as_of=datetime.now(UTC),
             )
         else:
-            logger.info(
-                "Fetching yfinance data for ticker=%s, job=%s", ticker, job_id
-            )
+            logger.info("Fetching yfinance data for ticker=%s, job=%s", ticker, job_id)
             financial_data = _fetch_yfinance(ticker, company_name)
+
+        span.update(output={"ticker": financial_data.ticker, "data_available": financial_data.data_available})
+        span.end()
 
     except Exception as exc:
         error_msg = f"financial_data_node failed: {exc}"
         logger.error(error_msg)
+        span.update(level="ERROR", status_message=error_msg)
+        span.end()
         return {"error": error_msg}  # type: ignore[return-value]
 
     return {"financial_data": financial_data}  # type: ignore[return-value]
