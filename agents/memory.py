@@ -1,7 +1,7 @@
 """Memory agent — retrieves relevant past research from ChromaDB using local embeddings.
 
 No LLM call is made here. Embeddings are generated locally with sentence-transformers
-"all-MiniLM-L6-v2". No LangFuse span is created per spec (data retrieval, not reasoning).
+"all-MiniLM-L6-v2".
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ import chromadb
 from sentence_transformers import SentenceTransformer
 
 from graph.state import ResearchState
+from llm.tracing import create_span
 
 logger = logging.getLogger(__name__)
 
@@ -102,29 +103,21 @@ def store_note_in_memory(note_text: str, metadata: dict) -> None:
 
 
 def memory_node(state: ResearchState) -> ResearchState:
-    """Retrieve top-3 most relevant past research notes from ChromaDB.
-
-    Embeds the current query locally (no API call), queries ChromaDB, and
-    concatenates the top-K results into a single context string. Returns an
-    empty string if the collection is empty or ChromaDB is unavailable —
-    the writer will simply proceed without memory context.
-
-    Args:
-        state: Current pipeline state. Reads ``query`` and ``job_id``.
-
-    Returns:
-        Updated state with ``memory_context`` populated (may be empty string).
-    """
+    """Retrieve top-3 most relevant past research notes from ChromaDB."""
     query = state.get("query", "")
     job_id = state.get("job_id", "unknown")
+
+    span = create_span(
+        "memory_node",
+        trace_id=state.get("langfuse_trace_id"),
+        input_data={"query": query, "job_id": job_id},
+    )
 
     try:
         client = _get_chroma_client()
         embedder = _get_embedder()
-
         collection = client.get_or_create_collection(_COLLECTION_NAME)
 
-        # If collection is empty, skip retrieval
         count = collection.count()
         if count == 0:
             logger.info(
@@ -132,10 +125,11 @@ def memory_node(state: ResearchState) -> ResearchState:
                 _COLLECTION_NAME,
                 job_id,
             )
+            span.update(output={"retrieved": 0, "reason": "collection_empty"})
+            span.end()
             return {"memory_context": ""}  # type: ignore[return-value]
 
         query_embedding: list[float] = embedder.encode(query).tolist()
-
         results = collection.query(
             query_embeddings=[query_embedding],
             n_results=min(_TOP_K, count),
@@ -144,14 +138,13 @@ def memory_node(state: ResearchState) -> ResearchState:
         documents: list[str] = results.get("documents", [[]])[0]
         memory_context = "\n\n---\n\n".join(documents)
 
-        logger.info(
-            "memory_node retrieved %d past notes for job %s.", len(documents), job_id
-        )
+        span.update(output={"retrieved": len(documents)})
+        span.end()
+        logger.info("memory_node retrieved %d past notes for job %s.", len(documents), job_id)
         return {"memory_context": memory_context}  # type: ignore[return-value]
 
     except Exception as exc:
-        logger.error(
-            "memory_node failed for job %s: %s. Returning empty context.", job_id, exc
-        )
-        # Non-fatal — writer proceeds without memory context
+        logger.error("memory_node failed for job %s: %s. Returning empty context.", job_id, exc)
+        span.update(level="WARNING", status_message=str(exc), output={"retrieved": 0})
+        span.end()
         return {"memory_context": ""}  # type: ignore[return-value]
