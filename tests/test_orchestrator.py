@@ -69,3 +69,38 @@ def test_orchestrator_sets_error_on_llm_failure(
     assert result.get("error") is not None
     assert "orchestrator_node failed" in result["error"]
     assert result.get("sub_questions") is None
+
+
+@patch("agents.orchestrator.trace_span")
+@patch("llm.client.get_llm_client")
+def test_orchestrator_retries_fallback_on_invalid_json(
+    mock_get_client: MagicMock, mock_trace_span: MagicMock
+) -> None:
+    """orchestrator_node succeeds when PRIMARY_MODEL returns invalid JSON but FALLBACK succeeds."""
+    valid_response = json.dumps(
+        {
+            "sub_questions": ["What is Infosys revenue outlook?"],
+            "research_plan": "Analyse Infosys financials.",
+        }
+    )
+    mock_client = MagicMock()
+    bad_choice = MagicMock()
+    bad_choice.message.content = "NOT JSON {{{"
+    bad_completion = MagicMock()
+    bad_completion.choices = [bad_choice]
+
+    good_choice = MagicMock()
+    good_choice.message.content = valid_response
+    good_completion = MagicMock()
+    good_completion.choices = [good_choice]
+
+    # PRIMARY fails, FALLBACK succeeds
+    mock_client.chat.completions.create.side_effect = [bad_completion, good_completion]
+    mock_get_client.return_value = mock_client
+
+    result = orchestrator_node(_base_state())
+
+    assert result.get("error") is None
+    assert len(result.get("sub_questions", [])) == 1
+    # Two LLM calls were made: primary + fallback
+    assert mock_client.chat.completions.create.call_count == 2

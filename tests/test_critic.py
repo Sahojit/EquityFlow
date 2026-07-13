@@ -116,3 +116,58 @@ def test_critic_handles_missing_draft_note(mock_create_span: MagicMock) -> None:
     result = critic_node(state)
 
     assert result.get("critique") == []
+
+
+@patch("agents.critic.create_span")
+@patch("llm.client.get_llm_client")
+def test_critic_all_verdict_types(
+    mock_get_client: MagicMock, mock_create_span: MagicMock
+) -> None:
+    """critic_node correctly parses all three verdict values: supported, unsupported, missing_citation."""
+    critique_json = json.dumps(
+        {
+            "critique": [
+                {"claim": "Revenue grew 8% YoY", "verdict": "supported", "reason": "Cited inline."},
+                {"claim": "Infosys will win 10 deals", "verdict": "unsupported", "reason": "No source."},
+                {"claim": "Market cap is $80B", "verdict": "missing_citation", "reason": "Fact with no URL."},
+            ]
+        }
+    )
+    mock_client = MagicMock()
+    choice = MagicMock()
+    choice.message.content = critique_json
+    completion = MagicMock()
+    completion.choices = [choice]
+    mock_client.chat.completions.create.return_value = completion
+    mock_get_client.return_value = mock_client
+    mock_create_span.return_value = MagicMock()
+
+    result = critic_node(_base_state())
+
+    critique = result.get("critique", [])
+    verdicts = {c.verdict for c in critique}
+    assert "supported" in verdicts
+    assert "unsupported" in verdicts
+    assert "missing_citation" in verdicts
+    assert result.get("error") is None
+
+
+@patch("agents.critic.create_span")
+@patch("llm.client.get_llm_client")
+def test_critic_returns_empty_list_when_note_is_well_cited(
+    mock_get_client: MagicMock, mock_create_span: MagicMock
+) -> None:
+    """critic_node accepts an empty critique list when all claims are well-supported."""
+    mock_client = MagicMock()
+    choice = MagicMock()
+    choice.message.content = json.dumps({"critique": []})
+    completion = MagicMock()
+    completion.choices = [choice]
+    mock_client.chat.completions.create.return_value = completion
+    mock_get_client.return_value = mock_client
+    mock_create_span.return_value = MagicMock()
+
+    result = critic_node(_base_state())
+
+    assert result.get("critique") == []
+    assert result.get("error") is None

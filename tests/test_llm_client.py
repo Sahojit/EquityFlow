@@ -192,3 +192,54 @@ def test_call_with_backoff_does_not_catch_other_exceptions() -> None:
 
     with pytest.raises(ValueError, match="unexpected error"):
         call_with_backoff(_raises_value_error)
+
+
+# ---------------------------------------------------------------------------
+# _strip_fences — markdown code-fence removal
+# ---------------------------------------------------------------------------
+
+
+def test_strip_fences_removes_json_fence() -> None:
+    """_strip_fences strips ```json ... ``` wrappers that models sometimes emit."""
+    from llm.client import _strip_fences
+
+    raw = "```json\n{\"key\": \"value\"}\n```"
+    assert _strip_fences(raw) == '{"key": "value"}'
+
+
+def test_strip_fences_removes_plain_fence() -> None:
+    """_strip_fences strips plain ``` ... ``` wrappers without a language tag."""
+    from llm.client import _strip_fences
+
+    raw = "```\n{\"key\": 1}\n```"
+    assert _strip_fences(raw) == '{"key": 1}'
+
+
+def test_strip_fences_is_noop_on_clean_json() -> None:
+    """_strip_fences leaves already-clean JSON unchanged."""
+    from llm.client import _strip_fences
+
+    raw = '{"key": "value"}'
+    assert _strip_fences(raw) == raw
+
+
+# ---------------------------------------------------------------------------
+# call_structured — markdown-fenced JSON is accepted
+# ---------------------------------------------------------------------------
+
+
+@patch("llm.client.get_llm_client")
+def test_call_structured_accepts_fenced_json(mock_get_client: MagicMock) -> None:
+    """call_structured succeeds when the model wraps JSON in ```json fences."""
+    fenced = "```json\n{\"name\": \"Wipro\", \"value\": 99}\n```"
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.return_value = _make_completion(fenced)
+    mock_get_client.return_value = mock_client
+
+    result = call_structured(
+        messages=[{"role": "user", "content": "test"}],
+        response_schema=_SampleSchema,
+    )
+
+    assert result.name == "Wipro"
+    assert result.value == 99
