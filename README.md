@@ -104,6 +104,84 @@ make typecheck
 
 ---
 
+## Observability
+
+### LangFuse Tracing
+
+Every pipeline run is traced end-to-end in [LangFuse](https://cloud.langfuse.com).
+
+**What is traced:**
+- Each agent node is a named span (`orchestrator_node`, `web_researcher_node`, etc.)
+- Every LLM call logs: model used, prompt tokens, completion tokens, latency (ms)
+- Errors are tagged with `level="ERROR"` and include the exception message
+- The full pipeline run groups under a single trace ID stored in `state["langfuse_trace_id"]`
+
+**To view traces:**
+1. Go to [cloud.langfuse.com](https://cloud.langfuse.com) and sign in
+2. Open your project → **Traces** tab
+3. Each research job appears as one trace; click in to see per-node spans and token usage
+
+**Setup:** Add these to your `.env`:
+```
+LANGFUSE_PUBLIC_KEY=pk_...
+LANGFUSE_SECRET_KEY=sk_...
+LANGFUSE_HOST=https://cloud.langfuse.com
+```
+
+### Structured Logging
+
+All logs are emitted as **single-line JSON** (configured in `config/logging.py`).
+
+**Log levels by module:**
+
+| Module | Level | What you see |
+|--------|-------|-------------|
+| `llm.*` | DEBUG | Token counts, raw model responses, retry attempts |
+| `agents.*` | INFO | Node start/end, extracted tickers, article counts, word counts |
+| `api.*` | INFO | Request received, job created, pipeline completed |
+| root | WARNING | Third-party library noise suppressed |
+
+**Log output location:**
+- **Console** — JSON lines on stdout (visible in `make run-api` terminal)
+- **File** — `logs/alpha_agents.log` (rotating, 10 MB per file, 5 backups kept)
+
+**Example log line:**
+```json
+{"timestamp": "2026-07-14T10:23:01+00:00", "level": "INFO", "logger": "agents.writer",
+ "message": "Generated recommendation: Buy (confidence=Medium) for Infosys Limited. Note word count: 843. Revision=0. job=abc123"}
+```
+
+---
+
+## Debugging
+
+### Common errors and fixes
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `GROQ_API_KEY is not set` | Missing env var | Add `GROQ_API_KEY=gsk_...` to `.env` |
+| `TAVILY_API_KEY not set` | Missing env var | Add `TAVILY_API_KEY=tvly_...` to `.env` |
+| `Rate limit hit (attempt N/3)` | Groq free tier 6K TPM | Wait 60s or reduce `MAX_NEWS_ITEMS` in `agents/news.py` |
+| `Both models failed to return valid ... output` | LLM returned malformed JSON | Check LangFuse trace for the raw response; usually a model glitch — retry |
+| `data_available=False` in the note | yfinance returned empty data for the ticker | Verify the ticker exists on Yahoo Finance; try the primary US exchange symbol |
+| `Pipeline crashed` in job status | Unhandled exception in a node | Check `logs/alpha_agents.log` for the `"level": "ERROR"` line with `exc_info` |
+| ChromaDB `collection empty` | First run, no approved notes yet | Run and approve at least one research job; ChromaDB is populated on HITL approval |
+
+### Reading logs
+
+```bash
+# Tail the log file (pretty-print JSON with jq)
+tail -f logs/alpha_agents.log | jq .
+
+# Filter for errors only
+cat logs/alpha_agents.log | jq 'select(.level == "ERROR")'
+
+# Filter for a specific job
+cat logs/alpha_agents.log | jq 'select(.message | contains("job-id-here"))'
+```
+
+---
+
 ## Data
 
 See [docs/data.md](docs/data.md) for schemas, sources, and field-level documentation

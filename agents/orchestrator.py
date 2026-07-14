@@ -72,6 +72,8 @@ def orchestrator_node(state: ResearchState) -> ResearchState:
     query = state.get("query", "")
     job_id = state.get("job_id", "unknown")
 
+    logger.info("Orchestrator started for query: %.80s (job=%s)", query, job_id)
+
     try:
         get_llm_client()  # validates GROQ_API_KEY is configured before proceeding
 
@@ -110,7 +112,7 @@ def orchestrator_node(state: ResearchState) -> ResearchState:
 
     except Exception as exc:
         error_msg = f"orchestrator_node failed: {exc}"
-        logger.error(error_msg)
+        logger.error("Orchestrator failed for job %s", job_id, exc_info=True)
         trace_span(
             "orchestrator_node",
             input_data={"query": query, "job_id": job_id},

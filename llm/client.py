@@ -156,6 +156,7 @@ def call_structured(
     for attempt_model in models_to_try:
         try:
             logger.debug("Calling model=%s schema=%s", attempt_model, response_schema.__name__)
+            t0 = time.monotonic()
             completion = client.chat.completions.create(
                 model=attempt_model,
                 messages=messages,  # type: ignore[arg-type]
@@ -164,6 +165,20 @@ def call_structured(
                 # No response_format — Groq's server-side JSON validation rejects
                 # markdown-fenced output with 400; we strip fences ourselves instead.
             )
+            latency_ms = int((time.monotonic() - t0) * 1000)
+
+            usage = getattr(completion, "usage", None)
+            prompt_tokens = getattr(usage, "prompt_tokens", None)
+            completion_tokens = getattr(usage, "completion_tokens", None)
+            logger.info(
+                "LLM call complete: model=%s schema=%s latency=%dms prompt_tokens=%s completion_tokens=%s",
+                attempt_model,
+                response_schema.__name__,
+                latency_ms,
+                prompt_tokens,
+                completion_tokens,
+            )
+
             raw = _strip_fences(completion.choices[0].message.content or "")
             logger.debug("Raw response from %s: %s", attempt_model, raw[:300])
 
@@ -187,7 +202,7 @@ def call_structured(
             last_error = exc
 
         except Exception as exc:
-            logger.error("Unexpected error calling model %s: %s", attempt_model, exc)
+            logger.error("Unexpected error calling model %s: %s", attempt_model, exc, exc_info=True)
             raise
 
     raise RuntimeError(

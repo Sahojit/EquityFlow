@@ -118,9 +118,10 @@ def memory_node(state: ResearchState) -> ResearchState:
         embedder = _get_embedder()
         collection = client.get_or_create_collection(_COLLECTION_NAME)
 
+        logger.info("Searching ChromaDB for past research (job=%s)", job_id)
         count = collection.count()
         if count == 0:
-            logger.info(
+            logger.debug(
                 "ChromaDB collection '%s' is empty. Returning empty memory context. job=%s",
                 _COLLECTION_NAME,
                 job_id,
@@ -140,7 +141,7 @@ def memory_node(state: ResearchState) -> ResearchState:
 
         span.update(output={"retrieved": len(documents)})
         span.end()
-        logger.info("memory_node retrieved %d past notes for job %s.", len(documents), job_id)
+        logger.info("Found %d past research items for job %s.", len(documents), job_id)
         return {"memory_context": memory_context}  # type: ignore[return-value]
 
     except Exception as exc:

@@ -159,6 +159,8 @@ def financial_data_node(state: ResearchState) -> ResearchState:
         ticker = extraction.ticker
         company_name = extraction.company_name
 
+        logger.info("Extracted ticker: %s (%s) for job %s", ticker, company_name, job_id)
+
         if ticker == "UNKNOWN":
             logger.warning(
                 "LLM could not determine ticker for job %s. "

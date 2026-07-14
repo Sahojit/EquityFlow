@@ -177,6 +177,8 @@ def writer_node(state: ResearchState) -> ResearchState:
     job_id = state.get("job_id", "unknown")
     revision_count = state.get("revision_count", 0)
 
+    logger.info("Writer synthesizing research note (revision=%d, job=%s)", revision_count, job_id)
+
     span = create_span(
         "writer_node",
         trace_id=state.get("langfuse_trace_id"),
@@ -226,10 +228,14 @@ def writer_node(state: ResearchState) -> ResearchState:
         )
         span.end()
 
+        word_count = len(draft_note.full_text.split())
         logger.info(
-            "writer_node produced draft note for %s (%s). Revision=%d. job=%s",
-            draft_note.company_name,
+            "Generated recommendation: %s (confidence=%s) for %s. "
+            "Note word count: %d. Revision=%d. job=%s",
             draft_note.recommendation,
+            draft_note.confidence,
+            draft_note.company_name,
+            word_count,
             revision_count,
             job_id,
         )

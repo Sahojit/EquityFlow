@@ -73,6 +73,7 @@ def web_researcher_node(state: ResearchState) -> ResearchState:
         web_results: list[WebResult] = []
 
         for sub_q in sub_questions:
+            logger.info("Searching: %.80s", sub_q)
             try:
                 response = tavily.search(query=sub_q, max_results=_MAX_RESULTS_PER_Q)
             except Exception as exc:
@@ -86,6 +87,7 @@ def web_researcher_node(state: ResearchState) -> ResearchState:
                 title = result.get("title", "")
                 snippet = result.get("content", "")
 
+                logger.debug("Summarizing: %.50s", title)
                 messages = [
                     {"role": "system", "content": _SYSTEM_PROMPT},
                     {"role": "user", "content": snippet},

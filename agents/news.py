@@ -169,6 +169,7 @@ def news_node(state: ResearchState) -> ResearchState:
         return {"news_results": []}  # type: ignore[return-value]
 
     search_term = _extract_company_name(query)
+    logger.info("Searching news for: %s (job=%s)", search_term, job_id)
     client = TavilyClient(api_key=tavily_key)
 
     try:

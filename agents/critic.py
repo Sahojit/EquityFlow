@@ -80,6 +80,8 @@ def critic_node(state: ResearchState) -> ResearchState:
     job_id = state.get("job_id", "unknown")
     draft_note: ResearchNote | None = state.get("draft_note")  # type: ignore[assignment]
 
+    logger.info("Critic reviewing note for job %s", job_id)
+
     span = create_span(
         "critic_node",
         trace_id=state.get("langfuse_trace_id"),
@@ -127,12 +129,9 @@ def critic_node(state: ResearchState) -> ResearchState:
         )
         span.end()
 
-        logger.info(
-            "critic_node: %d claims reviewed, %d unresolved. job=%s",
-            len(critique),
-            unresolved_count,
-            job_id,
-        )
+        logger.info("Found %d critique items for job %s.", len(critique), job_id)
+        if unresolved_count:
+            logger.warning("Unsupported claims: %d (job=%s)", unresolved_count, job_id)
 
         return {**state, "critique": critique}  # type: ignore[return-value]
 

@@ -23,6 +23,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException
 from pydantic import BaseModel
 
 from agents.memory import store_note_in_memory
+from config.logging import configure_logging
 from graph.pipeline import pipeline
 from graph.state import ResearchNote, ResearchState
 from llm.tracing import create_trace_id
@@ -175,7 +176,8 @@ async def _run_pipeline(job_id: str, query: str) -> None:
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Initialise the database on startup."""
+    """Initialise the database and logging on startup."""
+    configure_logging()
     await _init_db()
     logger.info("Database initialised.")
     yield
@@ -264,6 +266,7 @@ async def submit_research(
 
 @app.get("/research/{job_id}", response_model=JobStatusResponse)
 async def get_job_status(job_id: str) -> JobStatusResponse:
+    logger.debug("Status check for job %s", job_id)
     """Return the current status and a lightweight snapshot of job state.
 
     Args:
