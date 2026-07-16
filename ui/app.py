@@ -17,9 +17,6 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ---------------------------------------------------------------------------
-# Global CSS
-# ---------------------------------------------------------------------------
 
 st.markdown(
     """
@@ -40,9 +37,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ---------------------------------------------------------------------------
-# Sidebar
-# ---------------------------------------------------------------------------
 
 with st.sidebar:
     st.title("📈 AlphaAgents")
@@ -77,16 +71,9 @@ with st.sidebar:
     st.divider()
     st.caption("Made with LangGraph + Groq + Streamlit")
 
-# ---------------------------------------------------------------------------
-# Tabs
-# ---------------------------------------------------------------------------
 
 tab_new, tab_review, tab_history = st.tabs(["🔍 New Research", "📝 Review & Approve", "📚 History"])
 
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 def _post_research(query: str) -> str | None:
     """Submit a research query and return the job_id, or None on failure."""
@@ -177,10 +164,6 @@ def _render_pipeline_stages(status_data: dict) -> None:
         st.caption(f"Revision passes: {rev}")
 
 
-# ---------------------------------------------------------------------------
-# Tab 1 — New Research
-# ---------------------------------------------------------------------------
-
 with tab_new:
     st.header("Submit a Research Query")
 
@@ -194,7 +177,6 @@ with tab_new:
     with col_btn:
         run_clicked = st.button("Run ▶", type="primary", use_container_width=True)
 
-    # Quick example chips
     st.caption("Try:")
     chip_cols = st.columns(4)
     examples = ["Infosys FY27", "TCS Q1 2026", "HDFC Bank outlook", "Wipro AI strategy"]
@@ -204,7 +186,6 @@ with tab_new:
                 st.session_state["prefill_query"] = ex
                 st.rerun()
 
-    # Apply prefill if set
     if "prefill_query" in st.session_state:
         query = st.session_state.pop("prefill_query")
         st.session_state["_last_query"] = query
@@ -217,7 +198,6 @@ with tab_new:
             st.session_state["active_query"] = query.strip()
             st.rerun()
 
-    # Live polling block
     if "active_job_id" in st.session_state:
         job_id = st.session_state["active_job_id"]
         query_label = st.session_state.get("active_query", "")
@@ -259,10 +239,6 @@ with tab_new:
                     st.rerun()
 
 
-# ---------------------------------------------------------------------------
-# Tab 2 — Review & Approve
-# ---------------------------------------------------------------------------
-
 with tab_review:
     st.header("Review Draft Research Note")
 
@@ -278,7 +254,6 @@ with tab_review:
     with col_load:
         load_clicked = st.button("Load", type="primary", use_container_width=True)
 
-    # Auto-load when redirected from tab 1
     if st.session_state.pop("auto_load_review", False) and default_jid:
         load_clicked = True
         review_id = default_jid
@@ -296,7 +271,6 @@ with tab_review:
 
         status = status_data.get("status", "unknown")
 
-        # Status badge row
         col_s1, col_s2, col_s3 = st.columns(3)
         col_s1.metric("Status", status.upper())
         col_s2.metric("Revisions", status_data.get("revision_count", 0))
@@ -322,7 +296,6 @@ with tab_review:
 
         st.divider()
 
-        # Header row
         hcol1, hcol2, hcol3 = st.columns([3, 1, 1])
         with hcol1:
             st.markdown(
@@ -339,7 +312,6 @@ with tab_review:
 
         st.divider()
 
-        # Main content columns
         note_col, critique_col = st.columns([3, 2])
 
         with note_col:
@@ -347,7 +319,6 @@ with tab_review:
             with st.container(border=True):
                 st.markdown(draft.get("full_text", "_No text._"))
 
-            # Quick facts expander
             with st.expander("📊 Key Facts"):
                 st.markdown(f"**Investment Thesis:** {draft.get('investment_thesis','')}")
                 st.markdown("**Key Risks:**")
@@ -394,7 +365,6 @@ with tab_review:
             else:
                 st.info("No critique available.")
 
-        # HITL action bar
         st.divider()
         st.subheader("👤 Your Decision")
 
@@ -435,10 +405,6 @@ with tab_review:
                             st.rerun()
 
 
-# ---------------------------------------------------------------------------
-# Tab 3 — History
-# ---------------------------------------------------------------------------
-
 with tab_history:
     st.header("📚 Approved Research Notes")
 
@@ -455,13 +421,11 @@ with tab_history:
     if not jobs:
         st.info("No approved notes yet. Approve a research note to see it here.")
     else:
-        # Build a richer table by fetching states in parallel
         st.caption(f"{len(jobs)} approved note(s)")
         for job in jobs:
             jid = job.get("job_id", "")
             created = job.get("created_at", "")[:10]
 
-            # Try to fetch the note for rich display
             raw = _get_state(jid)
             note = (raw or {}).get("final_note") or (raw or {}).get("draft_note")
 

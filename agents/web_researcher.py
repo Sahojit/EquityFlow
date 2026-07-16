@@ -18,20 +18,11 @@ _MAX_SUB_QUESTIONS = 3
 _MAX_RESULTS_PER_Q = 5
 
 
-# ---------------------------------------------------------------------------
-# LLM response schema
-# ---------------------------------------------------------------------------
-
-
 class SnippetSummary(BaseModel):
     """One-to-two sentence summary of a single search result snippet."""
 
     summary: str = Field(description="1-2 sentence summary of the snippet.")
 
-
-# ---------------------------------------------------------------------------
-# System prompt
-# ---------------------------------------------------------------------------
 
 _SYSTEM_PROMPT = """\
 You are a financial research assistant. You will receive a web search result snippet.
@@ -43,11 +34,6 @@ Respond with ONLY valid JSON:
 
 Do not include any text outside the JSON object.
 """
-
-
-# ---------------------------------------------------------------------------
-# Node function
-# ---------------------------------------------------------------------------
 
 
 def web_researcher_node(state: ResearchState) -> ResearchState:
@@ -67,7 +53,7 @@ def web_researcher_node(state: ResearchState) -> ResearchState:
     sub_questions = state.get("sub_questions", [])[:_MAX_SUB_QUESTIONS]
 
     try:
-        get_llm_client()  # validates GROQ_API_KEY is configured before proceeding
+        get_llm_client()
         tavily = TavilyClient(api_key=os.environ["TAVILY_API_KEY"])
 
         web_results: list[WebResult] = []
@@ -118,7 +104,7 @@ def web_researcher_node(state: ResearchState) -> ResearchState:
             "web_researcher_node collected %d results for job %s.", len(web_results), job_id
         )
 
-        return {**state, "web_results": web_results}  # type: ignore[return-value]
+        return {**state, "web_results": web_results}
 
     except Exception as exc:
         error_msg = f"web_researcher_node failed: {exc}"
@@ -130,4 +116,4 @@ def web_researcher_node(state: ResearchState) -> ResearchState:
         )
         existing_error = state.get("error")
         combined_error = f"{existing_error}; {error_msg}" if existing_error else error_msg
-        return {**state, "error": combined_error}  # type: ignore[return-value]
+        return {**state, "error": combined_error}

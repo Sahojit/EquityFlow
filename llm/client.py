@@ -21,9 +21,6 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
 
 PRIMARY_MODEL: str = os.getenv(
     "PRIMARY_MODEL", "llama-3.1-8b-instant"
@@ -37,7 +34,6 @@ BACKOFF_BASE_SECONDS: float = 2.0
 
 T = TypeVar("T", bound=BaseModel)
 
-# Module-level singleton — avoids reconnecting to LangFuse on every span
 _langfuse_client: Langfuse | None = None
 
 
@@ -49,16 +45,10 @@ def _strip_fences(text: str) -> str:
     text = text.strip()
     if text.startswith("```"):
         text = text.lstrip("`")
-        # drop optional language tag (e.g. "json")
         if text.startswith("json"):
             text = text[4:]
         text = text.strip().rstrip("`").strip()
     return text
-
-
-# ---------------------------------------------------------------------------
-# Client factory
-# ---------------------------------------------------------------------------
 
 
 def get_llm_client() -> OpenAI:
@@ -117,11 +107,6 @@ def trace_span(name: str, input_data: dict, output_data: dict) -> None:
         logger.warning("trace_span failed for '%s': %s. Tracing skipped.", name, exc)
 
 
-# ---------------------------------------------------------------------------
-# Core structured call
-# ---------------------------------------------------------------------------
-
-
 def call_structured(
     *,
     messages: list[dict[str, str]],
@@ -159,11 +144,9 @@ def call_structured(
             t0 = time.monotonic()
             completion = client.chat.completions.create(
                 model=attempt_model,
-                messages=messages,  # type: ignore[arg-type]
+                messages=messages,
                 temperature=temperature,
                 max_tokens=max_tokens,
-                # No response_format — Groq's server-side JSON validation rejects
-                # markdown-fenced output with 400; we strip fences ourselves instead.
             )
             latency_ms = int((time.monotonic() - t0) * 1000)
 
@@ -182,8 +165,6 @@ def call_structured(
             raw = _strip_fences(completion.choices[0].message.content or "")
             logger.debug("Raw response from %s: %s", attempt_model, raw[:300])
 
-            # strict=False allows literal control chars (e.g. real \n inside strings)
-            # that models sometimes embed instead of escaped \n sequences.
             parsed_json = json.loads(raw, strict=False)
             return response_schema.model_validate(parsed_json)
 
@@ -195,7 +176,6 @@ def call_structured(
             last_error = exc
 
         except BadRequestError as exc:
-            # Groq json_validate_failed — model output was malformed; try next model.
             logger.warning(
                 "Model %s BadRequestError (%s). Trying fallback.", attempt_model, exc
             )
@@ -209,11 +189,6 @@ def call_structured(
         f"Both {PRIMARY_MODEL} and {FALLBACK_MODEL} failed to return valid "
         f"{response_schema.__name__} output. Last error: {last_error}"
     )
-
-
-# ---------------------------------------------------------------------------
-# Backoff wrapper
-# ---------------------------------------------------------------------------
 
 
 def call_with_backoff(

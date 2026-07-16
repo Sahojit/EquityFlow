@@ -24,10 +24,6 @@ from llm.tracing import create_span
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Prompt builders
-# ---------------------------------------------------------------------------
-
 _SYSTEM_PROMPT = """\
 You are a senior equity research analyst at a top-tier investment bank.
 Write a detailed, 4–6 page investment research note based on the provided data.
@@ -95,7 +91,6 @@ def _build_user_message(
         f"## Research Plan\n{research_plan[:_MAX_PLAN_CHARS]}",
     ]
 
-    # Financial data — compact single block
     if financial_data:
         fd = financial_data
         if fd.data_available:
@@ -113,7 +108,6 @@ def _build_user_message(
             )
         sections.append(f"## Financial Data\n{fin_block}")
 
-    # Web results — truncated snippets, capped count
     top_web = web_results[:_MAX_WEB_RESULTS]
     if top_web:
         web_block = "\n\n".join(
@@ -122,7 +116,6 @@ def _build_user_message(
         )
         sections.append(f"## Web Research\n{web_block}")
 
-    # News — summary only, capped count
     top_news = news_results[:_MAX_NEWS_RESULTS]
     if top_news:
         news_block = "\n".join(
@@ -131,7 +124,6 @@ def _build_user_message(
         )
         sections.append(f"## Recent News\n{news_block}")
 
-    # Critique — revision pass only, unresolved items only
     if critique:
         unresolved = [c for c in critique if c.verdict in ("unsupported", "missing_citation")]
         if unresolved:
@@ -144,18 +136,12 @@ def _build_user_message(
                 "Add a citation URL or remove/qualify each claim above."
             )
 
-    # Citation URLs — capped to avoid bloat
     all_urls = [r.url for r in top_web] + [n.url for n in top_news]
     unique_urls = list(dict.fromkeys(all_urls))[:_MAX_CITATION_URLS]
     if unique_urls:
         sections.append(f"## Citation URLs\n" + "\n".join(f"- {u}" for u in unique_urls))
 
     return "\n\n".join(sections)
-
-
-# ---------------------------------------------------------------------------
-# Node function
-# ---------------------------------------------------------------------------
 
 
 def writer_node(state: ResearchState) -> ResearchState:
@@ -195,7 +181,7 @@ def writer_node(state: ResearchState) -> ResearchState:
             query=query,
             research_plan=state.get("research_plan", ""),
             web_results=state.get("web_results", []),
-            financial_data=state.get("financial_data"),  # type: ignore[arg-type]
+            financial_data=state.get("financial_data"),
             news_results=state.get("news_results", []),
             memory_context=state.get("memory_context", ""),
             critique=state.get("critique", []),
@@ -213,7 +199,6 @@ def writer_node(state: ResearchState) -> ResearchState:
             max_tokens=1500,
         )
 
-        # Ensure date_generated is set (LLM may omit it or use wrong format)
         if not draft_note.date_generated:
             draft_note = draft_note.model_copy(
                 update={"date_generated": datetime.now(UTC)}
@@ -241,7 +226,7 @@ def writer_node(state: ResearchState) -> ResearchState:
         )
 
         return {
-            **state,  # type: ignore[misc]
+            **state,
             "draft_note": draft_note,
             "revision_count": revision_count + 1,
         }
@@ -251,4 +236,4 @@ def writer_node(state: ResearchState) -> ResearchState:
         logger.error(error_msg)
         span.update(level="ERROR", status_message=error_msg)
         span.end()
-        return {**state, "error": error_msg}  # type: ignore[return-value]
+        return {**state, "error": error_msg}

@@ -23,11 +23,6 @@ logger = logging.getLogger(__name__)
 MAX_NEWS_ITEMS = 6
 
 
-# ---------------------------------------------------------------------------
-# LLM response schema — batch: one call analyses all articles at once
-# ---------------------------------------------------------------------------
-
-
 class ArticleAnalysis(BaseModel):
     """Sentiment and summary for a single article in the batch response."""
 
@@ -42,10 +37,6 @@ class NewsAnalysisBatch(BaseModel):
         description="One entry per input article, in the same order."
     )
 
-
-# ---------------------------------------------------------------------------
-# System prompt
-# ---------------------------------------------------------------------------
 
 _NEWS_SYSTEM_PROMPT = """\
 You are a financial news analyst. You will receive a numbered list of news article
@@ -62,11 +53,6 @@ Respond with ONLY valid JSON matching this schema — one entry per article, in 
 
 Do not include any text outside the JSON object.
 """
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 
 def _extract_company_name(query: str) -> str:
@@ -133,11 +119,6 @@ def _parse_published_at(raw: dict) -> datetime:
     return datetime.now(UTC)
 
 
-# ---------------------------------------------------------------------------
-# Node function
-# ---------------------------------------------------------------------------
-
-
 def news_node(state: ResearchState) -> ResearchState:
     """Fetch recent news and analyse all articles in one batched LLM call.
 
@@ -166,7 +147,7 @@ def news_node(state: ResearchState) -> ResearchState:
         logger.warning(warning)
         span.update(level="WARNING", status_message=warning, output={"news_results": []})
         span.end()
-        return {"news_results": []}  # type: ignore[return-value]
+        return {"news_results": []}
 
     search_term = _extract_company_name(query)
     logger.info("Searching news for: %s (job=%s)", search_term, job_id)
@@ -186,14 +167,13 @@ def news_node(state: ResearchState) -> ResearchState:
         logger.warning(warning)
         span.update(level="WARNING", status_message=warning, output={"news_results": []})
         span.end()
-        return {"news_results": []}  # type: ignore[return-value]
+        return {"news_results": []}
 
     if not raw_results:
         span.update(output={"article_count": 0})
         span.end()
-        return {"news_results": []}  # type: ignore[return-value]
+        return {"news_results": []}
 
-    # Single batched LLM call for all articles
     analyses = _analyse_articles_batch(raw_results)
 
     news_results: list[NewsResult] = []
@@ -211,7 +191,7 @@ def news_node(state: ResearchState) -> ResearchState:
                 source_name=raw.get("source", "Unknown"),
                 url=raw.get("url", ""),
                 published_at=_parse_published_at(raw),
-                sentiment=sentiment_raw,  # type: ignore[arg-type]
+                sentiment=sentiment_raw,
                 summary=analysis.summary,
             )
         )
@@ -219,4 +199,4 @@ def news_node(state: ResearchState) -> ResearchState:
     span.update(output={"article_count": len(news_results)})
     span.end()
     logger.info("news_node collected %d articles for job %s.", len(news_results), job_id)
-    return {"news_results": news_results}  # type: ignore[return-value]
+    return {"news_results": news_results}

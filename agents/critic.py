@@ -18,11 +18,6 @@ from llm.tracing import create_span
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Response schema
-# ---------------------------------------------------------------------------
-
-
 class CritiqueResponse(BaseModel):
     """Wrapper schema for the critic LLM output."""
 
@@ -30,10 +25,6 @@ class CritiqueResponse(BaseModel):
         description="List of reviewed claims. Empty list if no issues found."
     )
 
-
-# ---------------------------------------------------------------------------
-# System prompt
-# ---------------------------------------------------------------------------
 
 _SYSTEM_PROMPT = """\
 You are a rigorous equity research compliance reviewer. Your job is to review an
@@ -60,11 +51,6 @@ Do not include any text outside the JSON object.
 """
 
 
-# ---------------------------------------------------------------------------
-# Node function
-# ---------------------------------------------------------------------------
-
-
 def critic_node(state: ResearchState) -> ResearchState:
     """Review the draft note and populate the critique list.
 
@@ -78,7 +64,7 @@ def critic_node(state: ResearchState) -> ResearchState:
         Updated state with ``critique`` populated.
     """
     job_id = state.get("job_id", "unknown")
-    draft_note: ResearchNote | None = state.get("draft_note")  # type: ignore[assignment]
+    draft_note: ResearchNote | None = state.get("draft_note")
 
     logger.info("Critic reviewing note for job %s", job_id)
 
@@ -93,10 +79,10 @@ def critic_node(state: ResearchState) -> ResearchState:
         logger.warning(warning)
         span.update(level="WARNING", status_message=warning, output={"critique": []})
         span.end()
-        return {**state, "critique": []}  # type: ignore[return-value]
+        return {**state, "critique": []}
 
     try:
-        note_excerpt = draft_note.full_text[:6000]  # stay within token budget
+        note_excerpt = draft_note.full_text[:6000]
 
         messages = [
             {"role": "system", "content": _SYSTEM_PROMPT},
@@ -133,12 +119,11 @@ def critic_node(state: ResearchState) -> ResearchState:
         if unresolved_count:
             logger.warning("Unsupported claims: %d (job=%s)", unresolved_count, job_id)
 
-        return {**state, "critique": critique}  # type: ignore[return-value]
+        return {**state, "critique": critique}
 
     except Exception as exc:
         error_msg = f"critic_node failed: {exc}. Returning empty critique."
         logger.error(error_msg)
         span.update(level="ERROR", status_message=error_msg)
         span.end()
-        # Return empty critique so revision_router sends to HITL, not infinite loop
-        return {**state, "critique": []}  # type: ignore[return-value]
+        return {**state, "critique": []}

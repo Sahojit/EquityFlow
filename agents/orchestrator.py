@@ -15,11 +15,6 @@ from llm.client import call_structured, call_with_backoff, get_llm_client, trace
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Response schema
-# ---------------------------------------------------------------------------
-
-
 class OrchestratorOutput(BaseModel):
     """Structured output expected from the orchestrator LLM call."""
 
@@ -30,10 +25,6 @@ class OrchestratorOutput(BaseModel):
         description="A concise paragraph describing the research approach and priorities."
     )
 
-
-# ---------------------------------------------------------------------------
-# System prompt
-# ---------------------------------------------------------------------------
 
 _SYSTEM_PROMPT = """\
 You are an expert equity research orchestrator. Given a user query about a company or sector,
@@ -48,11 +39,6 @@ You MUST respond with ONLY valid JSON that matches this exact schema:
 
 Do not include any text outside the JSON object. Do not wrap it in markdown code fences.
 """
-
-
-# ---------------------------------------------------------------------------
-# Node function
-# ---------------------------------------------------------------------------
 
 
 def orchestrator_node(state: ResearchState) -> ResearchState:
@@ -75,7 +61,7 @@ def orchestrator_node(state: ResearchState) -> ResearchState:
     logger.info("Orchestrator started for query: %.80s (job=%s)", query, job_id)
 
     try:
-        get_llm_client()  # validates GROQ_API_KEY is configured before proceeding
+        get_llm_client()
 
         messages = [
             {"role": "system", "content": _SYSTEM_PROMPT},
@@ -104,7 +90,7 @@ def orchestrator_node(state: ResearchState) -> ResearchState:
         )
 
         updated: ResearchState = {
-            **state,  # type: ignore[misc]
+            **state,
             "sub_questions": response.sub_questions,
             "research_plan": response.research_plan,
         }
@@ -118,4 +104,4 @@ def orchestrator_node(state: ResearchState) -> ResearchState:
             input_data={"query": query, "job_id": job_id},
             output_data={"error": error_msg},
         )
-        return {**state, "error": error_msg}  # type: ignore[return-value]
+        return {**state, "error": error_msg}

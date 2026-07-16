@@ -12,7 +12,6 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# Lazy singleton — initialised on first call
 _lf: Any = None
 
 
@@ -27,11 +26,6 @@ def _get_lf() -> Any:
             logger.warning("LangFuse client init failed: %s. Tracing disabled.", exc)
             _lf = _NoOpClient()
     return _lf
-
-
-# ---------------------------------------------------------------------------
-# No-op fallbacks
-# ---------------------------------------------------------------------------
 
 
 class _NoOpSpan:
@@ -60,11 +54,6 @@ class _NoOpClient:
         return type("NoOpTrace", (), {"id": str(uuid.uuid4())})()
 
 
-# ---------------------------------------------------------------------------
-# Public helpers used by agents and the API
-# ---------------------------------------------------------------------------
-
-
 def create_span(
     name: str,
     trace_id: str | None = None,
@@ -84,7 +73,6 @@ def create_span(
     """
     lf = _get_lf()
     try:
-        # LangFuse v4 API
         if hasattr(lf, "start_observation"):
             kwargs: dict[str, Any] = {"name": name, "as_type": "span"}
             if input_data:
@@ -94,10 +82,9 @@ def create_span(
                     from langfuse.types import TraceContext
                     kwargs["trace_context"] = TraceContext(trace_id=trace_id)
                 except ImportError:
-                    pass  # trace_context attachment best-effort only
+                    pass
             return lf.start_observation(**kwargs)
 
-        # LangFuse v2 API
         if hasattr(lf, "span"):
             return lf.span(
                 name=name,
@@ -120,7 +107,6 @@ def create_trace_id() -> str:
     try:
         if hasattr(lf, "create_trace_id"):
             return lf.create_trace_id()
-        # v2 fallback
         if hasattr(lf, "trace"):
             t = lf.trace(name="alpha_agents_pipeline")
             return t.id

@@ -34,13 +34,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./alpha_agents.db")
-# aiosqlite uses a plain file path; strip the sqlite:/// prefix
 _DB_PATH: str = DATABASE_URL.replace("sqlite:///", "")
-
-
-# ---------------------------------------------------------------------------
-# Database helpers
-# ---------------------------------------------------------------------------
 
 
 async def _init_db() -> None:
@@ -70,7 +64,6 @@ async def _upsert_job(job_id: str, status: str, state: ResearchState) -> None:
     """
     now = datetime.now(UTC).isoformat()
 
-    # Serialise state — ResearchNote and other Pydantic models need .model_dump()
     def _default(obj: object) -> object:
         if hasattr(obj, "model_dump"):
             return obj.model_dump(mode="json")
@@ -130,11 +123,6 @@ async def _list_approved_jobs() -> list[dict]:
             return [dict(r) for r in rows]
 
 
-# ---------------------------------------------------------------------------
-# Background pipeline runner
-# ---------------------------------------------------------------------------
-
-
 async def _run_pipeline(job_id: str, query: str) -> None:
     """Run the LangGraph pipeline for a job in a background task.
 
@@ -158,20 +146,15 @@ async def _run_pipeline(job_id: str, query: str) -> None:
     }
 
     try:
-        final_state: ResearchState = await pipeline.ainvoke(initial_state)  # type: ignore[attr-defined]
+        final_state: ResearchState = await pipeline.ainvoke(initial_state)
         status = "awaiting_hitl" if final_state.get("error") is None else "error"
         await _upsert_job(job_id, status, final_state)
         logger.info("Pipeline complete for job %s. Status: %s", job_id, status)
     except Exception as exc:
         error_msg = f"Pipeline crashed: {exc}"
         logger.error("job %s — %s", job_id, error_msg)
-        error_state: ResearchState = {**initial_state, "error": error_msg}  # type: ignore[misc]
+        error_state: ResearchState = {**initial_state, "error": error_msg}
         await _upsert_job(job_id, "error", error_state)
-
-
-# ---------------------------------------------------------------------------
-# App lifecycle
-# ---------------------------------------------------------------------------
 
 
 @asynccontextmanager
@@ -189,11 +172,6 @@ app = FastAPI(
     version="0.1.0",
     lifespan=_lifespan,
 )
-
-
-# ---------------------------------------------------------------------------
-# Request / response schemas
-# ---------------------------------------------------------------------------
 
 
 class ResearchRequest(BaseModel):
@@ -225,13 +203,8 @@ class JobStatusResponse(BaseModel):
 class HITLRequest(BaseModel):
     """Request body for POST /research/{job_id}/hitl."""
 
-    decision: str  # "approved" | "edited" | "rejected"
+    decision: str
     edited_note: ResearchNote | None = None
-
-
-# ---------------------------------------------------------------------------
-# Endpoints
-# ---------------------------------------------------------------------------
 
 
 @app.post("/research", response_model=ResearchSubmitResponse, status_code=202)
@@ -378,7 +351,6 @@ async def record_hitl_decision(job_id: str, request: HITLRequest) -> dict:
     state["hitl_decision"] = request.decision
     new_status = "done" if request.decision in ("approved", "edited") else "rejected"
 
-    # Store in ChromaDB for future memory retrieval
     if request.decision in ("approved", "edited") and state.get("final_note"):
         final_note_dict = state["final_note"]
         try:
@@ -393,10 +365,8 @@ async def record_hitl_decision(job_id: str, request: HITLRequest) -> dict:
             )
         except Exception as exc:
             logger.error("Failed to store note in memory for job %s: %s", job_id, exc)
-            # Non-fatal — HITL decision is still recorded
 
-    # Reconstruct ResearchState for serialisation
-    typed_state: ResearchState = state  # type: ignore[assignment]
+    typed_state: ResearchState = state
     await _upsert_job(job_id, new_status, typed_state)
 
     logger.info("HITL decision '%s' recorded for job %s.", request.decision, job_id)

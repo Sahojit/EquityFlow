@@ -20,14 +20,8 @@ logger = logging.getLogger(__name__)
 _COLLECTION_NAME = "alpha_agents_memory"
 _TOP_K = 3
 
-# Lazy singletons — initialised on first call to avoid slow import at module load
 _chroma_client: chromadb.ClientAPI | None = None
 _embedder: SentenceTransformer | None = None
-
-
-# ---------------------------------------------------------------------------
-# Singleton helpers
-# ---------------------------------------------------------------------------
 
 
 def _get_chroma_client() -> chromadb.ClientAPI:
@@ -56,11 +50,6 @@ def _get_embedder() -> SentenceTransformer:
         _embedder = SentenceTransformer("all-MiniLM-L6-v2")
         logger.info("Embedder ready.")
     return _embedder
-
-
-# ---------------------------------------------------------------------------
-# Public store helper (called by the API layer after a note is approved)
-# ---------------------------------------------------------------------------
 
 
 def store_note_in_memory(note_text: str, metadata: dict) -> None:
@@ -97,11 +86,6 @@ def store_note_in_memory(note_text: str, metadata: dict) -> None:
         raise
 
 
-# ---------------------------------------------------------------------------
-# Node function
-# ---------------------------------------------------------------------------
-
-
 def memory_node(state: ResearchState) -> ResearchState:
     """Retrieve top-3 most relevant past research notes from ChromaDB."""
     query = state.get("query", "")
@@ -128,7 +112,7 @@ def memory_node(state: ResearchState) -> ResearchState:
             )
             span.update(output={"retrieved": 0, "reason": "collection_empty"})
             span.end()
-            return {"memory_context": ""}  # type: ignore[return-value]
+            return {"memory_context": ""}
 
         query_embedding: list[float] = embedder.encode(query).tolist()
         results = collection.query(
@@ -142,10 +126,10 @@ def memory_node(state: ResearchState) -> ResearchState:
         span.update(output={"retrieved": len(documents)})
         span.end()
         logger.info("Found %d past research items for job %s.", len(documents), job_id)
-        return {"memory_context": memory_context}  # type: ignore[return-value]
+        return {"memory_context": memory_context}
 
     except Exception as exc:
         logger.error("memory_node failed for job %s: %s. Returning empty context.", job_id, exc)
         span.update(level="WARNING", status_message=str(exc), output={"retrieved": 0})
         span.end()
-        return {"memory_context": ""}  # type: ignore[return-value]
+        return {"memory_context": ""}

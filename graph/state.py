@@ -12,10 +12,6 @@ from typing import Literal
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict
 
-# ---------------------------------------------------------------------------
-# Sub-models
-# ---------------------------------------------------------------------------
-
 
 class WebResult(BaseModel):
     """A single web search result with an LLM-generated summary."""
@@ -101,11 +97,6 @@ class ResearchNote(BaseModel):
     full_text: str = Field(
         description="Full markdown-formatted research note (4–6 pages equivalent)."
     )
-
-
-# ---------------------------------------------------------------------------
-# Pipeline state
-# ---------------------------------------------------------------------------
 
 
 class ResearchState(TypedDict, total=False):

@@ -18,11 +18,6 @@ logger = logging.getLogger(__name__)
 MAX_REVISION_LOOPS: int = int(os.getenv("MAX_REVISION_LOOPS", "1"))
 
 
-# ---------------------------------------------------------------------------
-# Revision routing
-# ---------------------------------------------------------------------------
-
-
 def revision_router(state: ResearchState) -> str:
     """Decide whether to send the draft back to the writer or forward to HITL.
 
@@ -60,11 +55,6 @@ def revision_router(state: ResearchState) -> str:
     return "hitl_node"
 
 
-# ---------------------------------------------------------------------------
-# HITL node (pipeline boundary — decision stored by API layer)
-# ---------------------------------------------------------------------------
-
-
 def hitl_node(state: ResearchState) -> ResearchState:
     """Human-in-the-loop boundary node.
 
@@ -79,13 +69,8 @@ def hitl_node(state: ResearchState) -> ResearchState:
         Updated state with ``final_note`` populated from ``draft_note``.
     """
     logger.info("Pipeline reached HITL boundary. Awaiting human decision.")
-    updated: ResearchState = {**state, "final_note": state.get("draft_note")}  # type: ignore[misc]
+    updated: ResearchState = {**state, "final_note": state.get("draft_note")}
     return updated
-
-
-# ---------------------------------------------------------------------------
-# Graph factory  (agents imported here to avoid circular imports at module load)
-# ---------------------------------------------------------------------------
 
 
 def build_graph() -> StateGraph:
@@ -111,7 +96,6 @@ def build_graph() -> StateGraph:
 
     graph = StateGraph(ResearchState)
 
-    # Register nodes
     graph.add_node("orchestrator_node", orchestrator_node)
     graph.add_node("web_researcher_node", web_researcher_node)
     graph.add_node("financial_data_node", financial_data_node)
@@ -121,22 +105,18 @@ def build_graph() -> StateGraph:
     graph.add_node("critic_node", critic_node)
     graph.add_node("hitl_node", hitl_node)
 
-    # Entry
     graph.add_edge(START, "orchestrator_node")
 
-    # Fan-out: orchestrator → all worker agents in parallel
     graph.add_edge("orchestrator_node", "web_researcher_node")
     graph.add_edge("orchestrator_node", "financial_data_node")
     graph.add_edge("orchestrator_node", "news_node")
     graph.add_edge("orchestrator_node", "memory_node")
 
-    # Fan-in: all workers → writer
     graph.add_edge("web_researcher_node", "writer_node")
     graph.add_edge("financial_data_node", "writer_node")
     graph.add_edge("news_node", "writer_node")
     graph.add_edge("memory_node", "writer_node")
 
-    # Writer → critic → conditional revision router
     graph.add_edge("writer_node", "critic_node")
     graph.add_conditional_edges(
         "critic_node",
@@ -144,11 +124,9 @@ def build_graph() -> StateGraph:
         {"writer_node": "writer_node", "hitl_node": "hitl_node"},
     )
 
-    # HITL → END
     graph.add_edge("hitl_node", END)
 
     return graph.compile()
 
 
-# Module-level compiled graph (imported by api/main.py)
 pipeline = build_graph()

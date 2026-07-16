@@ -37,7 +37,6 @@ class _JsonFormatter(logging.Formatter):
         }
         if record.exc_info:
             payload["exc_info"] = self.formatException(record.exc_info)
-        # Include any extra fields attached via logger.info("msg", extra={...})
         for key, val in record.__dict__.items():
             if key not in {
                 "name", "msg", "args", "levelname", "levelno", "pathname",
@@ -47,7 +46,7 @@ class _JsonFormatter(logging.Formatter):
                 "taskName",
             }:
                 try:
-                    json.dumps(val)  # only include JSON-serialisable extras
+                    json.dumps(val)
                     payload[key] = val
                 except (TypeError, ValueError):
                     pass
@@ -58,7 +57,7 @@ def configure_logging(
     *,
     log_dir: str = "logs",
     log_file: str = "alpha_agents.log",
-    max_bytes: int = 10 * 1024 * 1024,  # 10 MB
+    max_bytes: int = 10 * 1024 * 1024,
     backup_count: int = 5,
 ) -> None:
     """Configure JSON structured logging for the whole application.
@@ -77,18 +76,16 @@ def configure_logging(
     """
     root = logging.getLogger()
     if root.handlers:
-        return  # already configured
+        return
 
     os.makedirs(log_dir, exist_ok=True)
 
     json_fmt = _JsonFormatter()
 
-    # Console handler
     console = logging.StreamHandler()
     console.setFormatter(json_fmt)
     console.setLevel(logging.DEBUG)
 
-    # Rotating file handler
     file_handler = logging.handlers.RotatingFileHandler(
         filename=os.path.join(log_dir, log_file),
         maxBytes=max_bytes,
@@ -98,12 +95,10 @@ def configure_logging(
     file_handler.setFormatter(json_fmt)
     file_handler.setLevel(logging.DEBUG)
 
-    # Root logger — WARNING by default so third-party noise is suppressed
     root.setLevel(logging.WARNING)
     root.addHandler(console)
     root.addHandler(file_handler)
 
-    # Per-module overrides
     logging.getLogger("llm").setLevel(logging.DEBUG)
     logging.getLogger("agents").setLevel(logging.INFO)
     logging.getLogger("api").setLevel(logging.INFO)

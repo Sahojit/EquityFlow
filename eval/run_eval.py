@@ -96,7 +96,7 @@ async def _run_single(query: str, job_id: str) -> dict:
         "error": None,
         "langfuse_trace_id": None,
     }
-    final_state: ResearchState = await pipeline.ainvoke(initial_state)  # type: ignore[attr-defined]
+    final_state: ResearchState = await pipeline.ainvoke(initial_state)
     return dict(final_state)
 
 
@@ -114,7 +114,7 @@ def _save_result(job_id: str, state: dict) -> None:
         if hasattr(obj, "model_dump"):
             return obj.model_dump(mode="json")
         if hasattr(obj, "isoformat"):
-            return obj.isoformat()  # type: ignore[union-attr]
+            return obj.isoformat()
         raise TypeError(f"Not serialisable: {type(obj)}")
 
     with open(out_path, "w") as f:

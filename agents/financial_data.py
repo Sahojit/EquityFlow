@@ -19,11 +19,6 @@ from llm.tracing import create_span
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# LLM response schema for ticker extraction
-# ---------------------------------------------------------------------------
-
-
 class TickerExtraction(BaseModel):
     """LLM output when extracting a ticker symbol from a natural-language query."""
 
@@ -36,10 +31,6 @@ class TickerExtraction(BaseModel):
     )
 
 
-# ---------------------------------------------------------------------------
-# System prompt
-# ---------------------------------------------------------------------------
-
 _TICKER_SYSTEM_PROMPT = """\
 You are a financial data assistant. Given a research query about a company,
 extract the most likely stock ticker symbol and the full company name.
@@ -51,11 +42,6 @@ Use the primary US exchange ticker when the company is dual-listed.
 If you are not confident, use "UNKNOWN" for ticker.
 Do not include any text outside the JSON object.
 """
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 
 def _extract_ticker(query: str) -> TickerExtraction:
@@ -138,11 +124,6 @@ def _fetch_yfinance(ticker: str, company_name: str) -> FinancialData:
     )
 
 
-# ---------------------------------------------------------------------------
-# Node function
-# ---------------------------------------------------------------------------
-
-
 def financial_data_node(state: ResearchState) -> ResearchState:
     """Extract ticker from query, fetch financial metrics, and populate state."""
     query = state.get("query", "")
@@ -185,6 +166,6 @@ def financial_data_node(state: ResearchState) -> ResearchState:
         logger.error(error_msg)
         span.update(level="ERROR", status_message=error_msg)
         span.end()
-        return {"error": error_msg}  # type: ignore[return-value]
+        return {"error": error_msg}
 
-    return {"financial_data": financial_data}  # type: ignore[return-value]
+    return {"financial_data": financial_data}
